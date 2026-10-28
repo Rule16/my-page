@@ -221,13 +221,12 @@
             -->
             <video controls
                 id="myVideo" 
-                src="https://rule16.github.io/my-page/game.mp4" 
                 preload="metadata" 
                 playsinline 
                 controls 
                 poster=""
-				type="video/mp4"
             >
+				<source src="https://rule16.github.io/my-page/game.mp4" type="video/mp4">
                 <!-- 如果浏览器不支持 video 标签，显示提示 -->
                 您的浏览器不支持视频播放。
             </video>
@@ -269,6 +268,7 @@
                         // 播放成功，隐藏覆盖层
                         overlay.classList.add('hidden');
                     }).catch(error => {
+						document.querySelector('video').src
                         // 播放失败（可能因为缺少源或自动播放策略），保持覆盖层可见，但可以显示一个错误提示
                         console.warn('播放失败:', error);
                         // 如果视频没有源，或者格式不支持，我们仍然隐藏覆盖层？不应该隐藏，因为无法播放。
