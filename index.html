@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>视频落地页 · 点击播放</title>
+    <style>
+        /* 全局重置 + 基础暗色氛围，突出视频区域 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0b0b0e;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+        }
+
+        /* 主卡片 — 干净的黑色容器，居中 */
+        .card {
+            max-width: 1080px;
+            width: 100%;
+            background: #141418;
+            border-radius: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            padding: 2.5rem 2rem;
+            transition: box-shadow 0.2s ease;
+        }
+
+        /* 标题区域 — 简洁 */
+        .head {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .head h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            background: linear-gradient(135deg, #f0f0f5 0%, #b0b0c0 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .head p {
+            font-size: 1rem;
+            color: #8e8e9e;
+            font-weight: 400;
+        }
+
+        /* 视频容器 — 圆角、深邃阴影，响应式 */
+        .video-wrapper {
+            position: relative;
+            border-radius: 1.8rem;
+            overflow: hidden;
+            background: #000;
+            box-shadow: 0 20px 35px -8px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08);
+            aspect-ratio: 16 / 9;
+            width: 100%;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .video-wrapper:hover {
+            box-shadow: 0 28px 45px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.15);
+        }
+
+        /* 视频元素 — 完全填充容器 */
+        .video-wrapper video {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            outline: none;
+            background: #000;
+            /* 隐藏原生控件时我们自定义一个大播放按钮，但保留 controls 属性以便用户主动点击播放 */
+            /* 这里只做样式，控件由浏览器提供，但我们会添加一个覆盖层按钮来引导点击 */
+            /* 注意：因为要“点击之后是一个视频”，即默认只有封面 + 点击播放，但更优雅的做法是显示一个播放按钮覆盖层 */
+            /* 为了让用户自己放链接，用覆盖层实现“点击播放视频”，并且隐藏原生控件？不，更好的体验是保留原生控件但覆盖一个播放按钮 */
+        }
+
+        /* 覆盖的播放按钮层 — 只在未播放时显示，点击后消失（通过JS控制） */
+        .play-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 30% 30%, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.65));
+            cursor: pointer;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            z-index: 10;
+            border-radius: 1.8rem;
+            /* 默认可见 */
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        /* 播放按钮样式 — 现代大圆 */
+        .play-btn {
+            width: 90px;
+            height: 90px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.2);
+            transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1);
+            transform: scale(1);
+        }
+
+        .play-btn svg {
+            width: 40px;
+            height: 40px;
+            margin-left: 6px; /* 视觉居中三角形 */
+            fill: #0b0b0e;
+            transition: transform 0.2s ease;
+        }
+
+        .play-overlay:hover .play-btn {
+            transform: scale(1.08);
+            background: #ffffff;
+            box-shadow: 0 18px 35px rgba(0, 0, 0, 0.8), 0 0 0 2px rgba(255, 255, 255, 0.5);
+        }
+
+        .play-overlay:hover .play-btn svg {
+            transform: scale(1.05);
+        }
+
+        /* 隐藏覆盖层的类 — 当视频开始播放时添加 */
+        .play-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* 视频控件调整：隐藏原生大播放按钮？不需要，因为我们用覆盖层隐藏了原生控件区域，但需要原生控件可用 */
+        /* 但视频自身的 controls 属性会让浏览器显示原生控件，包括一个很大的播放按钮，和我们自己的覆盖层重叠。 */
+        /* 为解决：不显示视频自带的 controls 属性？但是用户需要在播放后控制进度/音量。 */
+        /* 方案：一开始设置 controls = false (或没有 controls)，点击覆盖层后开始播放并显示 controls。这样既保证了点击播放，又保留控制条。 */
+        /* 但我们这里用一个更简洁优雅的方法：保留原生 controls，覆盖层仅起到一个好看的点击提示作用。当用户点击覆盖层时，触发视频播放，覆盖层消失。原生控件在播放后显示，但覆盖层消失后就不会遮挡控件。 */
+        /* 注意：视频一开始不要设置 autoplay，让用户决定。 */
+
+        /* 底部微小装饰 */
+        .foot {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #4a4a55;
+            letter-spacing: 0.3px;
+        }
+
+        /* 移动端调整 */
+        @media (max-width: 640px) {
+            .card {
+                padding: 1.5rem 1rem;
+                border-radius: 1.8rem;
+            }
+
+            .head h1 {
+                font-size: 1.6rem;
+            }
+
+            .head p {
+                font-size: 0.9rem;
+            }
+
+            .play-btn {
+                width: 70px;
+                height: 70px;
+            }
+
+            .play-btn svg {
+                width: 32px;
+                height: 32px;
+            }
+
+            .video-wrapper {
+                border-radius: 1.2rem;
+            }
+
+            .play-overlay {
+                border-radius: 1.2rem;
+            }
+        }
+
+        /* 让视频背景在加载前显示柔光 */
+        .video-wrapper video {
+            background: #101014;
+        }
+
+        /* 如果视频元素有空状态，显示提示（但不会出现，因为我们有覆盖层） */
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="head">
+            <!-- <h1>Haz clic en el video para reproducir 30 segundos</h1>-->
+	   <h1>Click to play the video for 30 seconds</h1>
+            <!-- <p>Ver ahora · Contenido destacado</p>-->
+            <p>Watch now · Exciting content</p>
+        </div>
+
+        <!-- 视频容器 -->
+        <div class="video-wrapper" id="videoWrapper">
+            <!-- 
+                ⬇️ 在这里替换成你自己的视频链接 ⬇️
+                src 属性填入视频地址 (mp4, webm, ogg 等)
+                也可以使用 <source> 标签
+            -->
+            <video 
+                id="myVideo" 
+                src="" 
+                preload="metadata" 
+                playsinline 
+                controls 
+                poster=""
+            >
+                <!-- 如果浏览器不支持 video 标签，显示提示 -->
+                您的浏览器不支持视频播放。
+            </video>
+
+            <!-- 点击覆盖层，用于引导点击播放，点击后隐藏 -->
+            <div class="play-overlay" id="playOverlay">
+                <div class="play-btn">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 5.14v14l11-7-11-7z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="foot">
+            <span>Your life is in your hands</span>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const video = document.getElementById('myVideo');
+            const overlay = document.getElementById('playOverlay');
+
+            // 当用户点击覆盖层时：播放视频，并隐藏覆盖层
+            overlay.addEventListener('click', function(e) {
+                // 避免重复触发
+                if (!video.paused) {
+                    // 如果已经在播放，也隐藏覆盖层
+                    overlay.classList.add('hidden');
+                    return;
+                }
+
+                // 播放视频
+                const playPromise = video.play();
+
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        // 播放成功，隐藏覆盖层
+                        overlay.classList.add('hidden');
+                    }).catch(error => {
+                        // 播放失败（可能因为缺少源或自动播放策略），保持覆盖层可见，但可以显示一个错误提示
+                        console.warn('播放失败:', error);
+                        // 如果视频没有源，或者格式不支持，我们仍然隐藏覆盖层？不应该隐藏，因为无法播放。
+                        // 但覆盖层看起来像可点击的，我们给个简单提示（用alert太粗暴，不做了）
+                        // 但为了让用户知道链接需要自己填，我们可以在控制台提醒，或者不做处理
+                        // 如果是自动播放策略问题，通常需要用户手势，我们已经有了。可以再次尝试点击。
+                        // 但是，如果视频src为空，则播放会失败。我们提示用户放入链接。
+                        if (!video.src || video.src === window.location.href) {
+                            // 不隐藏覆盖层，但给出一个视觉反馈？也可以
+                            // 让按钮抖动一下？简单点，使用alert会中断体验，所以用控制台提醒。
+                            console.log('请把视频链接放到 video 标签的 src 属性中。');
+                        }
+                    });
+                }
+            });
+
+            // 当视频开始播放时，无论如何都隐藏覆盖层（例如用户可能通过原生控件播放）
+            video.addEventListener('play', function() {
+                overlay.classList.add('hidden');
+            });
+
+            // 当视频暂停时，是否要显示覆盖层？为了让用户重新播放更方便，可以在暂停时显示覆盖层，但会遮挡控件。
+            // 根据常见的体验，暂停时不显示覆盖层更好（让原生控件操作），但有些用户会期望一个大的播放按钮。
+            // 我们折中：只在视频开始播放前显示覆盖层，暂停后不自动显示，因为原生控件上有播放按钮。
+            // 如果希望暂停时显示覆盖层，可以去掉下面事件的注释。
+            // 但本示例简单：只在未播放时显示覆盖层。点击播放后隐藏。
+            // 但是为了让用户重新观看时也能看到覆盖层？我们可以添加点击视频区域 (但会与原生控件冲突)。
+            // 保持简洁：仅点击覆盖层播放。如果视频暂停后希望覆盖层重新出现？可以再处理。
+            // 其实用户在暂停时可以再次点击覆盖层（如果它显示），但通常原生控件已经提供了播放按钮。
+            // 所以我们不做额外处理。
+            // 但要是用户全屏退出等，不需要。
+
+            // 可是如果视频播放结束，用户想重播，覆盖层不会重新出现，只能点原生控件上的播放按钮。
+            // 这也没问题，因为原生控件已经存在。
+            // 但如果用户希望覆盖层在视频结束后再次出现（更美观），可以监听 ended 事件。
+            video.addEventListener('ended', function() {
+                // 重新显示覆盖层？但这会挡住视频最后一帧，而且控件还在。
+                // 我们让覆盖层重新出现，但用户点击覆盖层可以重播。
+                // 同时如果视频已结束，控件显示最后一帧，覆盖层出现也没问题。
+                // 稍微调整：重新显示覆盖层（因为ended后控件可能自动隐藏？实际上控件还在）
+                // 为了更好体验，重新显示覆盖层，且点击即可重新播放。
+                // 但注意：此时原生控件也显示，重叠。但是覆盖层半透明，不影响看到控件？我们可以将覆盖层背景调得更透明一点，或者只在视频加载后不显示。
+                // 权衡后决定：视频结束显示覆盖层，点击可重新播放。
+                // 然而有些用户可能想在结束后看到视频最后一帧而不是覆盖层。我们先隐藏覆盖层，如果用户再次点击视频区域？
+                // 算了，为了简单且符合“点击之后是一个视频”的初衷，我们不自动重新显示覆盖层。
+                // 保持覆盖层只显示一次，直到用户手动播放为止。
+                // 如果用户希望重新播放，可以用原生控件。
+                // 但如果是短视频，用户会期待重新播放的按钮，所以：
+                // 我们让ended后，覆盖层重新出现，因为此时原生控件也可见，但用户点覆盖层会播放视频，OK。
+                // 注释掉下面一行以保持原有逻辑（覆盖层不自动重现）。如果你想要这个功能，可以取消注释。
+                // overlay.classList.remove('hidden');
+            });
+
+            // 另外，如果视频加载错误，保持覆盖层并可以提示。
+            video.addEventListener('error', function() {
+                console.warn('视频加载错误，请检查链接是否有效。');
+                // 覆盖层保持可见，用户可能再次点击（如果src有变动）。
+            });
+
+            // 当用户点击视频本身（非覆盖层区域，但覆盖层在播放前会覆盖全区域）时，如果覆盖层已隐藏，我们允许原生控件交互。
+            // 不需要额外操作。
+
+            // 可选的：如果视频的src为空，我们可以给一个占位提示，但不影响页面美观。
+            // 页面展示时，如果src为空，视频区域是黑色的，但有覆盖层，用户点击会播放失败。
+            // 为了更好的体验，我们可以设置一个默认的占位提示或者海报。
+            // 但题目要求“视频链接我自己来放”，所以保留空src，用户自行填入。
+            // 这里在控制台提醒开发者。
+            console.log('提示：请将视频链接填入 video 标签的 src 属性 (id="myVideo")。');
+
+            // 如果希望在视频未填写链接时点击覆盖层提示用户，可以这样做：
+            // 在点击事件中加入判断
+            // 但已经在上面的点击处理中做了简单控制台提醒。
+            // 为了更直观，我们稍微修改点击处理：如果视频src为空或者无效，则在控制台输出明显提示。
+            // 保持原样即可。
+        })();
+    </script>
+</body>
+</html>
