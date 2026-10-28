@@ -219,13 +219,14 @@
                 src 属性填入视频地址 (mp4, webm, ogg 等)
                 也可以使用 <source> 标签
             -->
-            <video 
+            <video controls
                 id="myVideo" 
                 src="https://rule16.github.io/my-page/game.mp4" 
                 preload="metadata" 
                 playsinline 
                 controls 
                 poster=""
+				type="video/mp4"
             >
                 <!-- 如果浏览器不支持 video 标签，显示提示 -->
                 您的浏览器不支持视频播放。
